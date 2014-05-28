@@ -14,8 +14,8 @@ It's meant to be non-invasive (i.e. doesn't write over your app.xml, tiapp.xml, 
 ## Requirements
 
 * [Node.js](http://nodejs.org/) >= 0.10.13
-* [Titanium CLI](https://github.com/titanium)
-* [Titanium SDK](https://github.com/titanium_mobile)
+* [Titanium CLI](https://github.com/appcelerator/titanium)
+* [Titanium SDK](https://github.com/appcelerator/titanium_mobile)
 
 ## Install
 
@@ -31,7 +31,7 @@ It's meant to be non-invasive (i.e. doesn't write over your app.xml, tiapp.xml, 
 [sudo] npm install -g git://github.com/appcelerator/tio2.git
 ```
 
-#### clone and install
+#### clone and install local
 
 ```bash
 git clone https://github.com/appcelerator/tio2.git
@@ -69,7 +69,7 @@ tio2 --platform ios --quiet --count 100 /path/to/project
 tio2 --platform ios --grep "^foo" --count 100 /path/to/project$
 ```
 
-Notice that you do not need to import should or ti-mocha and you don't need to run the mocha test suite.  This will be done automatically for you.
+Notice that you do not need to require should or ti-mocha and you don't need to run the mocha test suite (using `mocha.run`).  This will be done automatically for you.
 
 Example output will be in JSON with each test iteration as well as environmental information collected during the test:
 
@@ -138,7 +138,7 @@ The duration of each test is in microseconds, which allows you to get more accur
 
 ## Motivations
 
-The original genesis of this project was to build a better tool that would allow us to capture performance data for each build.  We have a legacy set of performance tests that we run but they are manual and are brittle and don't provide the coverage that we need.  This started out as a prototype to be able to simply right "ti-mocha" unit tests that could serve as performance benchmarks.  However, after reviewing this, we thought this could be more broadly useful and could expand beyond
+The original genesis of this project was to build a better tool that would allow us to capture performance data for each build.  We have a legacy set of performance tests that we run but they are manual and are brittle and don't provide the coverage that we need.  This started out as a prototype to be able to simply write "ti-mocha" unit tests that could serve as performance benchmarks.  However, after reviewing this, we thought this could be more broadly useful and could expand beyond
 performance measurements.
 
 ## Limitations / TODO
