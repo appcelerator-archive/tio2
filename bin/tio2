@@ -1,0 +1,449 @@
+#!/usr/bin/env node
+/**
+ * tio2 will run tests written as normal mocha specs in a Titanium app. 
+ * these tests then are run on device or simulator and collected and sent back to the CLI.
+ *
+ * See LICENSE for information and copyright.
+ */
+var colors = require('colors'),
+	program = require('commander'),
+	path = require('path'),
+	fs = require('fs-extra'),
+	UglifyJS = require('uglify-js'),
+	async = require('async'),
+	tiapp = require('tiapp.xml'),
+	spawn = require('child_process').spawn,
+	exec = require('child_process').exec,
+	pkg = JSON.parse(fs.readFileSync(path.join(__dirname,'../package.json')).toString());
+
+program
+  .version(pkg.version)
+  .usage('[options] <directory>')
+  .option('-d, --debug', 'more verbose logging')
+  .option('-q, --quiet', 'no build logging')
+  .option('-p, --platform [name]', 'platform such as ios, android, etc')
+  .option('-c, --count [count]', 'number of iterations to sample for each test case')
+  .option('-g, --grep [expr]', 'run regular expression on each test to filter specific tests to execute')
+  .option('-t, --target [target]', 'target either device or simulator (default)')
+  .parse(process.argv);
+
+
+if (program.args.length!==1) {
+	program.help();
+}
+
+// turn grep into a regular expression
+program.grep = program.grep && new RegExp(program.grep);
+program.target = program.target || 'simulator';
+
+function die() {
+	var args = [];
+	for (var c=0;c<arguments.length;c++) {
+		args.push(arguments[c]);
+	}
+	out_log('[FATAL] '+args.join(' '),true);
+	process.exit(1);
+}
+
+var logRegex = /^\[(INFO|DEBUG|ERROR|FATAL|WARN|TRACE)\]\s+(.*)/,
+	labelColors = {
+		INFO: 'green',
+		DEBUG: 'grey',
+		ERROR: 'red',
+		FATAL: 'red',
+		WARN: 'cyan',
+		TRACE: 'grey'
+	},
+	msgColors = {
+		INFO: 'white',
+		DEBUG: 'grey',
+		ERROR: 'white',
+		FATAL: 'redBG',
+		WARN: 'white',
+		TRACE: 'grey'
+	},
+	resultsRegex = /\!TEST_RESULTS_START\!/,
+	resultsEndRegex = /\!TEST_RESULTS_STOP\!/,
+	out_log_callback,
+	looking_for_result,
+	out_result,
+	colorize = (!!process.stdout.isTTY && !!process.stderr.isTTY);
+
+// called when our special log message is received
+function resultsDetected (results) {
+	var out = JSON.stringify(results,null,3);
+	console.log( colorize ? out.cyan : out.stripColors );
+	out_log_callback(null,results);
+}
+
+
+// handle the logger buffer
+function out_log(buf,force) {
+	var lines = String(buf).split('\n');
+	lines.forEach(function(line){
+		if (line) {
+			var m = logRegex.exec(line.trim()),
+				l = m && m[1].trim(),
+				// replace backspace chars that comes from ti
+				m = m && m[2].trim().replace(/^\:\s*[\b]/g,'').replace(/[\b]/g,'').trim();
+			//if (program.quiet)console.log(m);
+			// return;
+			if (m && l) {
+				if (resultsRegex.test(m)) {
+					looking_for_result = true;
+					out_result = '';
+					return;
+				}
+				else if (resultsEndRegex.test(m)) {
+					looking_for_result = false;
+					resultsDetected(JSON.parse(out_result));
+					return;
+				}
+				else if (looking_for_result) {
+					out_result+=m.trim();
+					return;
+				}
+				if (/(DEBUG|TRACE)/.test(l) && !program.debug) {
+					return;
+				}
+				if (program.quiet && !force) { return; }
+				var labelColor = colorize && (labelColors[l] || labelColors['DEBUG']),
+					msgColor = colorize && (msgColors[l] || msgColors['DEBUG']),
+					label = colorize ? ('['+l+']')[labelColor] : ('['+l.stripColors+']'),
+					msg = colorize ? m[msgColor] : m.stripColors;
+				console.log(label,msg);
+			}
+		}
+	});
+}
+
+// make sure the project directory passed in is valid
+var project_dir = path.resolve(program.args[0]);
+
+if (!fs.existsSync(project_dir)) {
+	die("Couldn't find project at",project_dir);
+}
+
+var build_dir = path.join(__dirname,'..','build');
+
+if (!fs.existsSync(build_dir)) {
+	fs.mkdir(build_dir);
+}
+
+
+// make sure this is a valid Titanium project
+var resource_dir = path.join(project_dir,'Resources'),
+	tiapp_xml = path.join(project_dir,'tiapp.xml'),
+	tiapp_xml_backup = path.join(build_dir,'tiapp.xml');
+
+if (!fs.existsSync(resource_dir)) {
+	die("Couldn't find Titanium Resources directory at",resource_dir);
+}
+
+if (!fs.existsSync(tiapp_xml)) {
+	die("Couldn't find Titanium configuration file at",tiapp_xml);
+}
+
+// make a backup
+fs.copySync(tiapp_xml, tiapp_xml_backup);
+
+// load up our tiapp.xml
+var tiapp = tiapp.load(tiapp_xml);
+
+var version = tiapp.sdkVersion,
+	platform = program.platform,
+	targets = tiapp.getDeploymentTargets(),
+	target_names = Object.keys(targets),
+	found;
+
+// check our deployment targets for this project with the platform under test
+for (var c=0;c<target_names.length;c++) {
+	var target = target_names[c],
+		enabled = targets[target];
+	
+	if (platform===target && !enabled) {
+		die("tiapp.xml is not configured to support the platform '"+platform+"'");
+	}
+	if (!platform && /(ipad|iphone|ios)/.test(target) && /darwin/.test(process.platform)) {
+		platform = found = 'iphone';
+		break;
+	}
+	if (platform===target || (/(iphone|ipad|ios)/.test(platform) && /(iphone|ipad|ios)/.test(target))) {
+		found = true;
+		break;
+	}
+}
+
+if (!platform || !found) {
+	die("Could not determine the platform. Specify with --platform");
+}
+
+var platform_ios = /(iphone|ipad|ios)/i.test(platform),
+	platform_android = /(android)/i.test(platform);
+
+// we are going to inject these modules into generated source
+var timocha = path.join(__dirname,'..','node_modules','ti-mocha','ti-mocha.js'),
+	should = path.join(__dirname,'..','node_modules','should','should.js');
+
+if (!fs.existsSync(timocha)) {
+	die("Couldn't find ti-mocha at",timocha);
+}
+
+if (!fs.existsSync(should)) {
+	die("Couldn't find should at",should);
+}
+
+// loook for our specs folder in our project
+var specs = path.join(project_dir,'specs');
+
+if (!fs.existsSync(specs)) {
+	die("Couldn't find specs folder at",specs);
+}
+
+// files we're going to shuffle
+var dest_timocha = path.join(resource_dir,'ti-mocha.js'),
+	dest_should = path.join(resource_dir,'should.js'),
+	dest_appjs = path.join(resource_dir,'app.js'),
+	copy_timocha = !fs.existsSync(dest_timocha),
+	copy_should = !fs.existsSync(dest_should),
+	backup_appjs = fs.existsSync(dest_appjs),
+	dest_appjs_backup = path.join(build_dir,'app.js');
+
+if (!fs.existsSync(dest_appjs)) {
+	die("Couldn't find app.js at",dest_appjs);
+}
+
+fs.copySync(timocha, dest_timocha);
+fs.copySync(should, dest_should);
+fs.copySync(dest_appjs, dest_appjs_backup);
+
+// make sure we write out our module info
+if (platform_ios) {
+	tiapp.setModule('com.appcelerator.timer', '1.0', 'iphone');
+	var ios_module = path.join('modules','ios','com.appcelerator.timer-iphone-1.0.zip'),
+		ios_module_dest = path.join(project_dir, path.basename(ios_module));
+
+	fs.copySync(ios_module,ios_module_dest);
+}
+else if (platform_android) {
+	//TODO
+}
+
+// save our tiapp.xml
+tiapp.write();
+
+// remove if we copied so we don't mess with git
+process.on('exit',function(){
+	try { copy_timocha && fs.unlinkSync(dest_timocha); } catch (E){}
+	try { copy_should && fs.unlinkSync(dest_should); } catch (E){}
+	// restore original app.js
+	try { backup_appjs && fs.copySync(dest_appjs_backup,dest_appjs); } catch (E){}
+	// restore tiapp.xml
+	try { fs.copySync(tiapp_xml_backup,tiapp_xml); } catch (E){}
+	// remove temp files
+	try { fs.unlinkSync(tiapp_xml_backup); } catch (E){}
+	try { fs.unlinkSync(dest_appjs_backup); } catch (E){}
+});
+
+/**
+ * run a build and launch the test
+ */
+function runTest (callback) {
+	var args = [
+		'--platform',
+		platform,
+		'--project-dir',
+		project_dir,
+		//'--build-only',
+		'--sdk',
+		version,
+		'--no-colors',
+		'--no-progress-bars',
+		'--no-banner',
+		'--no-prompt',
+		'build'
+	];
+	out_log_callback = callback;
+	var child = spawn('ti',args);
+	child.on('error',function(err){
+		callback(err);
+	});
+	child.stdout.on('data',out_log);
+	child.stderr.on('data',out_log);
+	child.on('exit',function(exitCode){
+		if (exitCode!==0) {
+			return callback("ti build exited with exitCode "+exitCode);
+		}
+		callback();
+	});
+}
+
+var specfiles = fs.readdirSync(specs),
+	tasks = [],
+	appjs = path.join(resource_dir,'app.js'),
+	iterations = program.count || 1,
+	cwd = process.cwd();
+
+// perform the unzip of the module
+tasks.push(function(next){
+	if (platform_ios) {
+		if (fs.existsSync(ios_module_dest)) {
+			process.chdir(project_dir);
+			return exec('unzip -o "'+ios_module_dest+'"', function(){
+				process.chdir(cwd);
+				next();
+			});
+		}
+	}
+	next();
+});
+
+// load and run each spec file
+specfiles.forEach(function(fn){
+	if (/\.js$/.test(fn)) {
+
+		var code = fs.readFileSync(path.join(specs,fn),'utf8').toString(),
+			ast = UglifyJS.parse(code);
+
+		// transform each spec file and re-write each test spec to run N times
+		// based on the --count value
+		function visitor(node, descend) {
+			if (node instanceof UglifyJS.AST_Toplevel) {
+				return;
+			}
+			// convert each of our `it` to wrap with an iteration for loop
+			if (node instanceof UglifyJS.AST_SimpleStatement) {
+				if (node.body.start.type === 'name' &&
+					node.body.start.value === 'it') {
+					var testname = node.body.args[0].value;
+					if (program.grep && !program.grep.test(testname)) {
+						// ignore this branch if not matched
+						return new UglifyJS.AST_EmptyStatement();
+					}
+					var init_ = new UglifyJS.AST_Var({
+						definitions: [
+							new UglifyJS.AST_VarDef({
+								name: new UglifyJS.AST_SymbolVar({name:"$r"}),
+								value: new UglifyJS.AST_Number({value:0})
+							})
+						]
+					});
+					var cond_ = new UglifyJS.AST_Binary({
+						left: new UglifyJS.AST_SymbolRef({name:"$r"}),
+						operator:'<',
+						right:new UglifyJS.AST_Number({value:iterations})
+					});
+					var step_ = new UglifyJS.AST_UnaryPostfix({
+						operator:'++',
+						expression:new UglifyJS.AST_SymbolRef({name:"$r"})
+
+					});
+					// create a new node
+					var for_ = new UglifyJS.AST_For({
+						init: init_,
+						condition: cond_,
+						step: step_,
+						body: node.body
+					});
+					return for_;
+				}
+			}
+		}
+
+		var tt = new UglifyJS.TreeTransformer(visitor),
+			// transform spec file
+			new_ast = ast.transform(tt),	
+			// get new JS after transform
+			jscode = new_ast.print_to_string({beautify:true}),
+			// re-write our JS by adding our wrapping code
+			code =  'require("ti-mocha");'+
+					'\nvar should=require("should");'+
+					'\nvar $timer=require("com.appcelerator.timer");'+
+					'\n'+ jscode + 
+					'\nvar $results = [];'+
+					// add a special mocha reporter that will time each test run using 
+					// our microsecond timer
+					'\nfunction $Reporter(runner){' +
+					'\n\tvar started, title;'+
+					'\n\trunner.on("suite",function(suite){'+
+					'\n\t\ttitle = suite.title;'+
+					'\n\t});'+
+					'\n\trunner.on("test",function(test){'+
+					'\n\t\tstarted = $timer.time();'+
+					'\n\t});'+
+					'\n\trunner.on("test end",function(test){'+
+					'\n\t\tvar tdiff = $timer.time()-started;'+
+					'\n\t\t$results.push({state:test.state,duration:tdiff,suite:title,title:test.title});'+
+					'\n\t});'+
+					'\n};'+
+					'\nmocha.setup({'+
+					'\n\treporter: $Reporter,'+
+					'\n\tquiet: true'+
+					'\n});'+
+					// dump the output, which will get interpreted above in the logging code
+					'\nvar $runner = mocha.run(function(){'+
+					'\n\tvar obj = {results:$results,platform:{},displayCaps:{},build:{}};'+
+					'\n\tobj.date = new Date;'+
+					'\n\tobj.platform.ostype = Ti.Platform.ostype;'+
+					'\n\tobj.platform.name = Ti.Platform.name;'+
+					'\n\tobj.platform.osname = Ti.Platform.osname;'+
+					'\n\tobj.platform.ostype = Ti.Platform.ostype;'+
+					'\n\tobj.platform.version = Ti.Platform.version;'+
+					'\n\tobj.platform.address = Ti.Platform.address;'+
+					'\n\tobj.platform.macaddress = Ti.Platform.macaddress;'+
+					'\n\tobj.platform.architecture = Ti.Platform.architecture;'+
+					'\n\tobj.platform.availableMemory = Ti.Platform.availableMemory;'+
+					'\n\tobj.platform.manufacturer  = Ti.Platform.manufacturer ;'+
+					'\n\tobj.platform.model  = Ti.Platform.model ;'+
+					'\n\tobj.displayCaps.density = Ti.Platform.displayCaps.density;'+
+					'\n\tobj.displayCaps.dpi = Ti.Platform.displayCaps.dpi;'+
+					'\n\tobj.displayCaps.platformHeight = Ti.Platform.displayCaps.platformHeight;'+
+					'\n\tobj.displayCaps.platformWidth = Ti.Platform.displayCaps.platformWidth;'+
+					'\n\tobj.displayCaps.xdpi = Ti.Platform.displayCaps.xdpi;'+
+					'\n\tobj.displayCaps.ydpi = Ti.Platform.displayCaps.ydpi;'+
+					'\n\tobj.build.date = Ti.buildDate;'+
+					'\n\tobj.build.git = Ti.buildHash;'+
+					'\n\tobj.build.version = Ti.version;'+
+					'\n\tTi.API.info("!TEST_RESULTS_START!");'+
+					'\n\tvar str = JSON.stringify(obj);'+
+					// chunk the output since Titanium will not output well huge buffers on one line
+					'\n\tvar split = 80, buf = "";'+
+					'\n\tfor (var c=0;c<str.length;c++){'+
+					'\n\t\tbuf+=str[c];'+
+					'\n\t\tif (c>0 && (c % split)===0) { Ti.API.info(buf); buf=""; }'+
+					'\n\t}'+
+					'\t\tbuf && Ti.API.info(buf);'+
+					'\n\tTi.API.info("!TEST_RESULTS_STOP!");'+
+					'\n});';
+
+
+		fs.writeFileSync(dest_appjs, code, 'utf8');
+		tasks.push(runTest);
+	}
+});
+
+function shutdown() {
+	if (platform_ios) {
+		if (/(sim|emu)/.test(program.target)) {
+			exec("osascript -e 'tell app \"iPhone Simulator\" to quit'", exit);
+		}
+		else {
+			die("ios device not yet supported, coming soon");
+		}
+	}
+	else if (platform_android) {
+		die("android not yet supported, coming soon");
+		exit();
+	}
+	else {
+		die("not sure which platform you are trying to use");
+		exit();
+	}
+}
+
+function exit() {
+	process.exit(0);
+}
+
+// run our tests in series and then shutdown
+async.series(tasks,shutdown);
