@@ -1,64 +1,54 @@
-// this sets the background color of the master UIView (when there are no windows/tab groups on it)
-Titanium.UI.setBackgroundColor('#000');
-
-// create tab group
-var tabGroup = Titanium.UI.createTabGroup();
-
-
-//
-// create base UI tab and root window
-//
-var win1 = Titanium.UI.createWindow({  
-    title:'Tab 1',
-    backgroundColor:'#fff'
+require("ti-mocha");
+var should=require("should");
+var $timer=require("com.appcelerator.timer");
+describe("test", function() {
+    for (var $r = 0; $r < 1; $r++) it("should test empty view", function() {
+        var view = Ti.UI.createView();
+        should(view).be.not.null;
+    })
 });
-var tab1 = Titanium.UI.createTab({  
-    icon:'KS_nav_views.png',
-    title:'Tab 1',
-    window:win1
+var $results = [];
+function $Reporter(runner){
+	var started, title;
+	runner.on("suite",function(suite){
+		title = suite.title;
+	});
+	runner.on("test",function(test){
+		started = $timer.time();
+	});
+	runner.on("test end",function(test){
+		var tdiff = $timer.time()-started;
+		$results.push({state:test.state,duration:tdiff,suite:title,title:test.title});
+	});
+};
+mocha.setup({
+	reporter: $Reporter,
+	quiet: true
 });
-
-var label1 = Titanium.UI.createLabel({
-	color:'#999',
-	text:'I am Window 1',
-	font:{fontSize:20,fontFamily:'Helvetica Neue'},
-	textAlign:'center',
-	width:'auto'
+var $runner = mocha.run(function(){
+	var obj = {results:$results,platform:{},displayCaps:{},build:{}};
+	obj.date = new Date;
+	obj.platform.ostype = Ti.Platform.ostype;
+	obj.platform.name = Ti.Platform.name;
+	obj.platform.osname = Ti.Platform.osname;
+	obj.platform.ostype = Ti.Platform.ostype;
+	obj.platform.version = Ti.Platform.version;
+	obj.platform.address = Ti.Platform.address;
+	obj.platform.macaddress = Ti.Platform.macaddress;
+	obj.platform.architecture = Ti.Platform.architecture;
+	obj.platform.availableMemory = Ti.Platform.availableMemory;
+	obj.platform.manufacturer  = Ti.Platform.manufacturer ;
+	obj.platform.model  = Ti.Platform.model ;
+	obj.displayCaps.density = Ti.Platform.displayCaps.density;
+	obj.displayCaps.dpi = Ti.Platform.displayCaps.dpi;
+	obj.displayCaps.platformHeight = Ti.Platform.displayCaps.platformHeight;
+	obj.displayCaps.platformWidth = Ti.Platform.displayCaps.platformWidth;
+	obj.displayCaps.xdpi = Ti.Platform.displayCaps.xdpi;
+	obj.displayCaps.ydpi = Ti.Platform.displayCaps.ydpi;
+	obj.build.date = Ti.buildDate;
+	obj.build.git = Ti.buildHash;
+	obj.build.version = Ti.version;
+	Ti.API.info("!TEST_RESULTS_START!");
+	var str = JSON.stringify(obj,null,3);		Ti.API.info(str);
+	Ti.API.info("!TEST_RESULTS_STOP!");
 });
-
-win1.add(label1);
-
-//
-// create controls tab and root window
-//
-var win2 = Titanium.UI.createWindow({  
-    title:'Tab 2',
-    backgroundColor:'#fff'
-});
-var tab2 = Titanium.UI.createTab({  
-    icon:'KS_nav_ui.png',
-    title:'Tab 2',
-    window:win2
-});
-
-var label2 = Titanium.UI.createLabel({
-	color:'#999',
-	text:'I am Window 2',
-	font:{fontSize:20,fontFamily:'Helvetica Neue'},
-	textAlign:'center',
-	width:'auto'
-});
-
-win2.add(label2);
-
-
-
-//
-//  add tabs
-//
-tabGroup.addTab(tab1);  
-tabGroup.addTab(tab2);  
-
-
-// open tab group
-tabGroup.open();

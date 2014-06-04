@@ -32,6 +32,7 @@
     "forge": "~2.2.0",
     "node-forge": "~0.5.5",
     "minimatch": "~0.3.0",
-    "ioslib": "~0.1.5"
+    "ioslib": "~0.1.5",
+    "androidlib": "~0.1.3"
   }
 }

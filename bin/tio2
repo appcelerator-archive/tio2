@@ -14,6 +14,7 @@ var colors = require('colors'),
 	tiapp = require('tiapp.xml'),
 	minimatch = require('minimatch'),
 	ioslib = require('ioslib'),
+	androidlib = require('androidlib'),
 	spawn = require('child_process').spawn,
 	exec = require('child_process').exec,
 	log = require('../lib/log'),
@@ -37,7 +38,6 @@ if (program.args.length!==1) {
 
 // turn grep into a regular expression
 program.grep = program.grep && new RegExp(program.grep);
-program.target = program.target || 'simulator';
 log.level = program.logLevel || 'info';
 
 if (program.quiet) {
@@ -109,6 +109,17 @@ if (!platform || !found) {
 	die("Could not determine the platform. Specify with --platform");
 }
 
+// defaults by platform
+var defaultTargets = {
+	android: 'emulator',
+	iphone: 'simulator',
+	ios: 'simulator',
+	ipad: 'simulator'
+};
+
+// resolve the correct default target based on platform
+program.target = program.target || defaultTargets[platform];
+
 var platform_ios = /(iphone|ipad|ios)/i.test(platform),
 	platform_android = /(android)/i.test(platform);
 
@@ -148,16 +159,22 @@ fs.copySync(timocha, dest_timocha);
 fs.copySync(should, dest_should);
 fs.copySync(dest_appjs, dest_appjs_backup);
 
+var module_dest;
+
 // make sure we write out our module info
 if (platform_ios) {
 	tiapp.setModule('com.appcelerator.timer', '1.0', 'iphone');
 	var ios_module = path.join('modules','ios','com.appcelerator.timer-iphone-1.0.zip'),
-		ios_module_dest = path.join(project_dir, path.basename(ios_module));
+		ios_module_dest = module_dest = path.join(project_dir, path.basename(ios_module));
 
 	fs.copySync(ios_module,ios_module_dest);
 }
 else if (platform_android) {
-	//TODO
+	tiapp.setModule('com.appcelerator.timer', '1.0', 'android');
+	var android_module = path.join('modules','android','com.appcelerator.timer-android-1.0.zip'),
+		android_module_dest = module_dest = path.join(project_dir, path.basename(android_module));
+
+	fs.copySync(android_module,android_module_dest);
 }
 
 // save our tiapp.xml
@@ -203,7 +220,8 @@ function runTest (callback) {
 		'build'
 	],
 	testResult,
-	_finished;
+	_finished,
+	targetlib;
 
 	function finish() {
 		if (!_finished) {
@@ -213,7 +231,7 @@ function runTest (callback) {
 	}
 
 	function logger(label, message) {
-		if (/^Assertion failed: \(AMDeviceTransferApplication/.test(message)) {
+		if (platform_ios && /^Assertion failed: \(AMDeviceTransferApplication/.test(message)) {
 			return;
 		}
 		if (resultsRegex.test(message)) {
@@ -221,9 +239,8 @@ function runTest (callback) {
 		}
 		else if (resultsEndRegex.test(message)) {
 			inResults = false;
-			console.log(results)
 			testResult = JSON.parse(results.join('').trim());
-			ioslib[program.target].stop(function(){
+			targetlib[program.target].stop(function(){
 				finish(null,testResult);
 			});
 		}
@@ -237,7 +254,7 @@ function runTest (callback) {
 
 	var tasks = [];
 
-	if (program.target==='device') {
+	if (platform_ios && program.target==='device') {
 		tasks.push(function(next){
 			ioslib.profile.find(tiapp.id,function(err,results){
 				if (err) { return next(err); }
@@ -262,16 +279,11 @@ function runTest (callback) {
 			next();
 		});
 		// attach platform specific logger
-		if (platform_ios) {
-			var tilogger = new ioslib.log(tiapp.name,function(label,message){
-				// ti will emit some weird symbols as beginning. strip those out
-				log[label](message.replace(/^[\s\b:]*/,''));
-			});
-			tilogger.attach(child);
-		}
-		else {
-			//TODO
-		}
+		var tilogger = new ioslib.log(tiapp.name,function(label,message){
+			// ti will emit some weird symbols as beginning. strip those out
+			log[label](message.replace(/^[\s\b:]*/,''));
+		});
+		tilogger.attach(child);
 	});
 
 	tasks.push(function(next){
@@ -304,7 +316,27 @@ function runTest (callback) {
 				callback: next
 			};
 
+			targetlib = ioslib;
+
 			ioslib[program.target].launch(config);
+		}
+		else if (platform_android) {
+			var name = tiapp.name.charAt(0).toUpperCase()+tiapp.name.substring(1),
+				apk = path.join(project_dir,'build','android','bin',name+'.apk');
+
+			var config = {
+				apk: apk,
+				name: name, 
+				appid: tiapp.id,
+				target: program.target,
+				unit: true,
+				hide: true,
+				logger: logger,
+				callback: next
+			};
+			targetlib = androidlib;
+			
+			androidlib[program.target].launch(config);
 		}
 		else {
 			//TODO
@@ -322,14 +354,13 @@ var specfiles = fs.readdirSync(specs),
 
 // perform the unzip of the module
 tasks.push(function(next){
-	if (platform_ios) {
-		if (fs.existsSync(ios_module_dest)) {
-			process.chdir(project_dir);
-			return exec('/usr/bin/unzip -o "'+ios_module_dest+'"', function(){
-				process.chdir(cwd);
-				next();
-			});
-		}
+	if (module_dest && fs.existsSync(module_dest)) {
+		process.chdir(project_dir);
+		//TODO: fix for windows
+		return exec('/usr/bin/unzip -o "'+module_dest+'"', function(){
+			process.chdir(cwd);
+			next();
+		});
 	}
 	next();
 });
