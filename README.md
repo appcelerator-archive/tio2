@@ -8,8 +8,8 @@ It's meant to be non-invasive (i.e. doesn't write over your app.xml, tiapp.xml, 
 
 ## Current Status [![NPM version](https://badge.fury.io/js/tio2.svg)](http://badge.fury.io/js/tio2)
 
-- works on iOS simulator only. device coming soon
-- will work on android but launch code has to be added
+- support for iOS simulator and device testing
+- android and windows coming
 
 ## Requirements
 
@@ -189,5 +189,4 @@ TiO2 (Titanium + Oxygen) is the most important oxide, which exists in three impo
 ## Legal
 
 Copyright (c) 2014 by [Appcelerator, Inc](http://www.appcelerator.com). All Rights Reserved.
-This project is licensed under the Apache Public License, version 2.  
-Please see details in the LICENSE file.
+This project is licensed under the Apache Public License, version 2.  Please see details in the LICENSE file.
