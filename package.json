@@ -1,6 +1,6 @@
 {
   "name": "tio2",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Developer testing for Titanium",
   "main": "index.js",
   "bin": "./bin/tio2",
@@ -13,7 +13,11 @@
   },
   "keywords": [
     "titanium",
-    "automation"
+    "automation",
+    "android",
+    "iphone",
+    "ios",
+    "hyperloop"
   ],
   "author": "Jeff Haynie",
   "license": "Apache-2",

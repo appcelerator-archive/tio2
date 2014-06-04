@@ -9,7 +9,7 @@ It's meant to be non-invasive (i.e. doesn't write over your app.xml, tiapp.xml, 
 ## Current Status [![NPM version](https://badge.fury.io/js/tio2.svg)](http://badge.fury.io/js/tio2)
 
 - support for iOS simulator and device testing
-- support for Android simulator testing
+- support for Android simulator and device testing
 - android device in progress
 
 ## Requirements
@@ -72,8 +72,11 @@ tio2 --platform ios --quiet --count 100 /path/to/project
 # let's filter for test specs that match a specific regular expression
 tio2 --platform ios --grep "^foo" --count 100 /path/to/project
 
-# let's launch and run on device
+# let's launch and run on device for ios
 tio2 --platform ios --target device /path/to/project
+
+# let's launch and run on device for android
+tio2 --platform android --target device /path/to/project
 ```
 
 Notice that you do not need to require should or ti-mocha and you don't need to run the mocha test suite (using `mocha.run`).  This will be done automatically for you.
