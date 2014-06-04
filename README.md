@@ -67,6 +67,9 @@ tio2 --platform ios --quiet --count 100 /path/to/project
 
 # let's filter for test specs that match a specific regular expression
 tio2 --platform ios --grep "^foo" --count 100 /path/to/project$
+
+# let's launch and run on device
+tio2 --platform ios --target device /path/to/project
 ```
 
 Notice that you do not need to require should or ti-mocha and you don't need to run the mocha test suite (using `mocha.run`).  This will be done automatically for you.
@@ -144,9 +147,8 @@ performance measurements.
 ## Limitations / TODO
 
 - Currently, only JSON is output.  Will expand to provide integration with mocha reporters.
-- iOS device support
 - Android support
-- refactor into code that can be used outside of CLI
+- Windows 8 support
 
 
 ## Credits
