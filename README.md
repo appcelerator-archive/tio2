@@ -10,7 +10,6 @@ It's meant to be non-invasive (i.e. doesn't write over your app.xml, tiapp.xml, 
 
 - support for iOS simulator and device testing
 - support for Android simulator and device testing
-- android device in progress
 
 ## Requirements
 
