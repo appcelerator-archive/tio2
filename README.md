@@ -9,7 +9,7 @@ It's meant to be non-invasive (i.e. doesn't write over your app.xml, tiapp.xml, 
 ## Current Status [![NPM version](https://badge.fury.io/js/tio2.svg)](http://badge.fury.io/js/tio2)
 
 - support for iOS simulator and device testing
-- android simulator testing
+- support for Android simulator testing
 - android device in progress
 
 ## Requirements
@@ -150,6 +150,7 @@ performance measurements.
 
 ## Limitations / TODO
 
+- For Android, the emulator must already be running -- it does not currently auto-start it. 
 - Currently, only JSON is output.  Will expand to provide integration with mocha reporters.
 - Windows 8 (as part of Hyperloop + Ti.Next)
 

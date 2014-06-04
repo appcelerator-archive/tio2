@@ -226,6 +226,7 @@ function runTest (callback) {
 	function finish() {
 		if (!_finished) {
 			_finished=true;
+			targetlib[program.target].stop();
 			callback.apply(callback,arguments);
 		}
 	}
@@ -335,7 +336,7 @@ function runTest (callback) {
 				callback: next
 			};
 			targetlib = androidlib;
-			
+
 			androidlib[program.target].launch(config);
 		}
 		else {
