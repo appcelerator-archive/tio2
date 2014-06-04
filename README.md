@@ -46,7 +46,7 @@ Create a `specs` folder in your Titanium app (at the same level as the `Resource
 
 For example, really simple spec file:
 
-```
+```javascript
 describe("Ti.UI",function(){
     it("create empty view", function(){
         var view = new Ti.UI.createView();
@@ -55,7 +55,7 @@ describe("Ti.UI",function(){
 });
 ```
 
-```
+```bash
 # run the built-in example
 tio2 ./examples
 
@@ -79,7 +79,7 @@ Notice that you do not need to require should or ti-mocha and you don't need to 
 
 Example output will be in JSON with each test iteration as well as environmental information collected during the test:
 
-```
+```json
 {
    "results": [
       {
