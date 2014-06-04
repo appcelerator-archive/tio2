@@ -12,19 +12,22 @@ var colors = require('colors'),
 	UglifyJS = require('uglify-js'),
 	async = require('async'),
 	tiapp = require('tiapp.xml'),
+	minimatch = require('minimatch'),
+	ioslib = require('ioslib'),
 	spawn = require('child_process').spawn,
 	exec = require('child_process').exec,
+	log = require('../lib/log'),
 	pkg = JSON.parse(fs.readFileSync(path.join(__dirname,'../package.json')).toString());
 
 program
   .version(pkg.version)
   .usage('[options] <directory>')
-  .option('-d, --debug', 'more verbose logging')
   .option('-q, --quiet', 'no build logging')
   .option('-p, --platform [name]', 'platform such as ios, android, etc')
   .option('-c, --count [count]', 'number of iterations to sample for each test case')
   .option('-g, --grep [expr]', 'run regular expression on each test to filter specific tests to execute')
   .option('-t, --target [target]', 'target either device or simulator (default)')
+  .option('-l, --log-level [level]','set the log-level for logging. defaults to info')
   .parse(process.argv);
 
 
@@ -35,86 +38,14 @@ if (program.args.length!==1) {
 // turn grep into a regular expression
 program.grep = program.grep && new RegExp(program.grep);
 program.target = program.target || 'simulator';
+log.level = program.logLevel || 'info';
+
+if (program.quiet) {
+	log.level = 'quiet';
+}
 
 function die() {
-	var args = [];
-	for (var c=0;c<arguments.length;c++) {
-		args.push(arguments[c]);
-	}
-	out_log('[FATAL] '+args.join(' '),true);
-	process.exit(1);
-}
-
-var logRegex = /^\[(INFO|DEBUG|ERROR|FATAL|WARN|TRACE)\]\s+(.*)/,
-	labelColors = {
-		INFO: 'green',
-		DEBUG: 'grey',
-		ERROR: 'red',
-		FATAL: 'red',
-		WARN: 'cyan',
-		TRACE: 'grey'
-	},
-	msgColors = {
-		INFO: 'white',
-		DEBUG: 'grey',
-		ERROR: 'white',
-		FATAL: 'redBG',
-		WARN: 'white',
-		TRACE: 'grey'
-	},
-	resultsRegex = /\!TEST_RESULTS_START\!/,
-	resultsEndRegex = /\!TEST_RESULTS_STOP\!/,
-	out_log_callback,
-	looking_for_result,
-	out_result,
-	colorize = (!!process.stdout.isTTY && !!process.stderr.isTTY);
-
-// called when our special log message is received
-function resultsDetected (results) {
-	var out = JSON.stringify(results,null,3);
-	console.log( colorize ? out.cyan : out.stripColors );
-	out_log_callback(null,results);
-}
-
-
-// handle the logger buffer
-function out_log(buf,force) {
-	var lines = String(buf).split('\n');
-	lines.forEach(function(line){
-		if (line) {
-			var m = logRegex.exec(line.trim()),
-				l = m && m[1].trim(),
-				// replace backspace chars that comes from ti
-				m = m && m[2].trim().replace(/^\:\s*[\b]/g,'').replace(/[\b]/g,'').trim();
-			//if (program.quiet)console.log(m);
-			// return;
-			if (m && l) {
-				if (resultsRegex.test(m)) {
-					looking_for_result = true;
-					out_result = '';
-					return;
-				}
-				else if (resultsEndRegex.test(m)) {
-					looking_for_result = false;
-					resultsDetected(JSON.parse(out_result));
-					return;
-				}
-				else if (looking_for_result) {
-					out_result+=m.trim();
-					return;
-				}
-				if (/(DEBUG|TRACE)/.test(l) && !program.debug) {
-					return;
-				}
-				if (program.quiet && !force) { return; }
-				var labelColor = colorize && (labelColors[l] || labelColors['DEBUG']),
-					msgColor = colorize && (msgColors[l] || msgColors['DEBUG']),
-					label = colorize ? ('['+l+']')[labelColor] : ('['+l.stripColors+']'),
-					msg = colorize ? m[msgColor] : m.stripColors;
-				console.log(label,msg);
-			}
-		}
-	});
+	log.fatal.apply(log.fatal,arguments);
 }
 
 // make sure the project directory passed in is valid
@@ -148,7 +79,7 @@ if (!fs.existsSync(tiapp_xml)) {
 fs.copySync(tiapp_xml, tiapp_xml_backup);
 
 // load up our tiapp.xml
-var tiapp = tiapp.load(tiapp_xml);
+tiapp = tiapp.load(tiapp_xml);
 
 var version = tiapp.sdkVersion,
 	platform = program.platform,
@@ -245,37 +176,142 @@ process.on('exit',function(){
 	try { fs.unlinkSync(dest_appjs_backup); } catch (E){}
 });
 
+var resultsRegex = /\!TEST_RESULTS_START\!/,
+	resultsEndRegex = /\!TEST_RESULTS_STOP\!/,
+	inResults,
+	results = [];
+
 /**
  * run a build and launch the test
  */
 function runTest (callback) {
+
 	var args = [
+		'--build-only',
 		'--platform',
 		platform,
 		'--project-dir',
 		project_dir,
-		//'--build-only',
 		'--sdk',
 		version,
 		'--no-colors',
 		'--no-progress-bars',
 		'--no-banner',
 		'--no-prompt',
+		'--target',
+		program.target,
 		'build'
-	];
-	out_log_callback = callback;
-	var child = spawn('ti',args);
-	child.on('error',function(err){
-		callback(err);
-	});
-	child.stdout.on('data',out_log);
-	child.stderr.on('data',out_log);
-	child.on('exit',function(exitCode){
-		if (exitCode!==0) {
-			return callback("ti build exited with exitCode "+exitCode);
+	],
+	testResult,
+	_finished;
+
+	function finish() {
+		if (!_finished) {
+			_finished=true;
+			callback.apply(callback,arguments);
 		}
-		callback();
+	}
+
+	function logger(label, message) {
+		if (/^Assertion failed: \(AMDeviceTransferApplication/.test(message)) {
+			return;
+		}
+		if (resultsRegex.test(message)) {
+			inResults = true;
+		}
+		else if (resultsEndRegex.test(message)) {
+			inResults = false;
+			console.log(results)
+			testResult = JSON.parse(results.join('').trim());
+			ioslib[program.target].stop(function(){
+				finish(null,testResult);
+			});
+		}
+		else if (inResults) {
+			results.push(message);
+		}
+		else {
+			log[label](message);
+		}
+	}
+
+	var tasks = [];
+
+	if (program.target==='device') {
+		tasks.push(function(next){
+			ioslib.profile.find(tiapp.id,function(err,results){
+				if (err) { return next(err); }
+				args.unshift(results.developer_name.replace('iPhone Developer: ',''));
+				args.unshift('--developer-name');
+				args.unshift(results.profiles[0]);
+				args.unshift('--pp-uuid');
+				args.unshift(results.device_id);
+				args.unshift('--device-id');
+				next();
+			});
+		});
+	}
+
+	tasks.push(function(next){
+		var child = spawn('ti',args);
+		child.on('error', next);
+		child.on('exit',function(exitCode){
+			if (exitCode!==0) {
+				return next("ti build exited with exitCode "+exitCode);
+			}
+			next();
+		});
+		// attach platform specific logger
+		if (platform_ios) {
+			var tilogger = new ioslib.log(tiapp.name,function(label,message){
+				// ti will emit some weird symbols as beginning. strip those out
+				log[label](message.replace(/^[\s\b:]*/,''));
+			});
+			tilogger.attach(child);
+		}
+		else {
+			//TODO
+		}
 	});
+
+	tasks.push(function(next){
+		if (platform_ios) {
+			var build_dir,
+				name;
+
+			switch (program.target) {
+				case 'device':{
+					name = 'iphoneos';
+					break;
+				}
+				case 'simulator': {
+					name = 'iphonesimulator';
+					break;
+				}
+				default: {
+					return next("incorrect target");
+				}
+			}
+			
+			var build_dir = path.join(project_dir,'build','iphone','build','Debug-'+name);
+			build_dir = path.join(build_dir,fs.readdirSync(build_dir).filter(function(n) { return path.extname(n)=='.app'; } )[0]);
+
+			var config = {
+				build_dir: build_dir,
+				unit: true,
+				hide: true,
+				logger: logger,
+				callback: next
+			};
+
+			ioslib[program.target].launch(config);
+		}
+		else {
+			//TODO
+		}
+	});
+
+	async.series(tasks, finish);
 }
 
 var specfiles = fs.readdirSync(specs),
@@ -289,7 +325,7 @@ tasks.push(function(next){
 	if (platform_ios) {
 		if (fs.existsSync(ios_module_dest)) {
 			process.chdir(project_dir);
-			return exec('unzip -o "'+ios_module_dest+'"', function(){
+			return exec('/usr/bin/unzip -o "'+ios_module_dest+'"', function(){
 				process.chdir(cwd);
 				next();
 			});
@@ -405,40 +441,27 @@ specfiles.forEach(function(fn){
 					'\n\tobj.build.git = Ti.buildHash;'+
 					'\n\tobj.build.version = Ti.version;'+
 					'\n\tTi.API.info("!TEST_RESULTS_START!");'+
-					'\n\tvar str = JSON.stringify(obj);'+
-					// chunk the output since Titanium will not output well huge buffers on one line
-					'\n\tvar split = 80, buf = "";'+
-					'\n\tfor (var c=0;c<str.length;c++){'+
-					'\n\t\tbuf+=str[c];'+
-					'\n\t\tif (c>0 && (c % split)===0) { Ti.API.info(buf); buf=""; }'+
-					'\n\t}'+
-					'\t\tbuf && Ti.API.info(buf);'+
+					'\n\tvar str = JSON.stringify(obj,null,3);'+
+					'\t\tTi.API.info(str);'+
 					'\n\tTi.API.info("!TEST_RESULTS_STOP!");'+
+					// '\n\tsetTimeout($timer.exit,10);'+
 					'\n});';
-
 
 		fs.writeFileSync(dest_appjs, code, 'utf8');
 		tasks.push(runTest);
 	}
 });
 
-function shutdown() {
-	if (platform_ios) {
-		if (/(sim|emu)/.test(program.target)) {
-			exec("osascript -e 'tell app \"iPhone Simulator\" to quit'", exit);
-		}
-		else {
-			die("ios device not yet supported, coming soon");
-		}
-	}
-	else if (platform_android) {
-		die("android not yet supported, coming soon");
-		exit();
+
+function shutdown(err, results) {
+	if (err) { die(err); }
+	if (program.quiet) {
+		console.log(results);
 	}
 	else {
-		die("not sure which platform you are trying to use");
-		exit();
+		log.info(results);
 	}
+	exit();
 }
 
 function exit() {
@@ -446,4 +469,5 @@ function exit() {
 }
 
 // run our tests in series and then shutdown
-async.series(tasks,shutdown);
+async.waterfall(tasks,shutdown);
+
