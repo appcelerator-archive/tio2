@@ -6,7 +6,7 @@ This utility is meant to be run from the command-line against an existing Titani
 
 It's meant to be non-invasive (i.e. doesn't write over your app.xml, tiapp.xml, etc.) and non-confrontational (create artifacts that must be merged in git, etc).
 
-## Current Status
+## Current Status [![NPM version](https://badge.fury.io/js/tio2.svg)](http://badge.fury.io/js/tio2)
 
 - works on iOS simulator only. device coming soon
 - will work on android but launch code has to be added
