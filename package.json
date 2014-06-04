@@ -1,6 +1,6 @@
 {
   "name": "tio2",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Developer testing for Titanium",
   "main": "index.js",
   "scripts": {
