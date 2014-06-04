@@ -56,6 +56,9 @@ describe("Ti.UI",function(){
 ```
 
 ```
+# run the built-in example
+tio2 ./examples
+
 # let's launch and run once
 tio2 --platform ios /path/to/project
 
@@ -66,7 +69,7 @@ tio2 --platform ios --count 100 /path/to/project
 tio2 --platform ios --quiet --count 100 /path/to/project
 
 # let's filter for test specs that match a specific regular expression
-tio2 --platform ios --grep "^foo" --count 100 /path/to/project$
+tio2 --platform ios --grep "^foo" --count 100 /path/to/project
 
 # let's launch and run on device
 tio2 --platform ios --target device /path/to/project
