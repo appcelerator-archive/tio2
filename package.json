@@ -37,7 +37,7 @@
     "forge": "~2.2.0",
     "node-forge": "~0.5.5",
     "minimatch": "~0.3.0",
-    "ioslib": "~0.1.6",
+    "ioslib": "~0.1.9",
     "androidlib": "~0.1.5",
     "wrench": "~1.5.8"
   }
