@@ -166,14 +166,14 @@ var module_dest;
 // make sure we write out our module info
 if (platform_ios) {
 	tiapp.setModule('com.appcelerator.timer', '1.0', 'iphone');
-	var ios_module = path.join('modules','ios','com.appcelerator.timer-iphone-1.0.zip'),
+	var ios_module = path.join(__dirname,'..','modules','ios','com.appcelerator.timer-iphone-1.0.zip'),
 		ios_module_dest = module_dest = path.join(build_dir, path.basename(ios_module));
 
 	fs.copySync(ios_module,ios_module_dest);
 }
 else if (platform_android) {
 	tiapp.setModule('com.appcelerator.timer', '1.0', 'android');
-	var android_module = path.join('modules','android','com.appcelerator.timer-android-1.0.zip'),
+	var android_module = path.join(__dirname,'..','modules','android','com.appcelerator.timer-android-1.0.zip'),
 		android_module_dest = module_dest = path.join(build_dir, path.basename(android_module));
 
 	fs.copySync(android_module,android_module_dest);
