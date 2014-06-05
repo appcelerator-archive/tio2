@@ -4,7 +4,7 @@ Titanium utility for better automated unit and functional testing of Titanium AP
 
 This utility is meant to be run from the command-line against an existing Titanium app (either Alloy or Titanium classic).
 
-It's meant to be non-invasive (i.e. doesn't write over your app.xml, tiapp.xml, etc.) and non-confrontational (create artifacts that must be merged in git, etc).
+It's meant to be non-invasive (i.e. doesn't write over your app.js, tiapp.xml, etc.) and non-confrontational (create artifacts that must be merged in git, etc).
 
 ## Current Status [![NPM version](https://badge.fury.io/js/tio2.svg)](http://badge.fury.io/js/tio2)
 
