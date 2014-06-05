@@ -52,6 +52,7 @@
   </mobileweb>
   <modules>
     <module platform="android" version="1.0">com.appcelerator.timer</module>
+    <module platform="iphone" version="1.0">com.appcelerator.timer</module>
   </modules>
   <deployment-targets>
     <target device="android">true</target>

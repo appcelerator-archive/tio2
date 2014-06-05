@@ -13,6 +13,7 @@ var colors = require('colors'),
 	async = require('async'),
 	tiapp = require('tiapp.xml'),
 	minimatch = require('minimatch'),
+	wrench = require('wrench'),
 	ioslib = require('ioslib'),
 	androidlib = require('androidlib'),
 	spawn = require('child_process').spawn,
@@ -49,23 +50,36 @@ function die() {
 }
 
 // make sure the project directory passed in is valid
-var project_dir = path.resolve(program.args[0]);
+var project_dir = path.resolve(program.args[0]),
+	source_tiapp = path.join(project_dir, 'tiapp.xml');
 
 if (!fs.existsSync(project_dir)) {
 	die("Couldn't find project at",project_dir);
 }
 
-var build_dir = path.join(__dirname,'..','build');
+// make sure this is a Ti project
+if (!fs.existsSync(source_tiapp)) {
+	die("Doesn't look like a Titanium project. Couldn't find ",source_tiapp);
+}
+
+// load up our tiapp.xml
+source_tiapp = tiapp.load(source_tiapp);
+
+// create a temp build directory and let OS natively clean up as needed
+var build_dir = path.join(require('os').tmpdir(),'tio2_'+source_tiapp.name);
 
 if (!fs.existsSync(build_dir)) {
 	fs.mkdir(build_dir);
 }
 
+// copy the project into our build directory
+wrench.copyDirSyncRecursive(project_dir, build_dir,{
+	forceDelete:true
+});
 
 // make sure this is a valid Titanium project
-var resource_dir = path.join(project_dir,'Resources'),
-	tiapp_xml = path.join(project_dir,'tiapp.xml'),
-	tiapp_xml_backup = path.join(build_dir,'tiapp.xml');
+var resource_dir = path.join(build_dir,'Resources'),
+	tiapp_xml = path.join(build_dir,'tiapp.xml');
 
 if (!fs.existsSync(resource_dir)) {
 	die("Couldn't find Titanium Resources directory at",resource_dir);
@@ -74,9 +88,6 @@ if (!fs.existsSync(resource_dir)) {
 if (!fs.existsSync(tiapp_xml)) {
 	die("Couldn't find Titanium configuration file at",tiapp_xml);
 }
-
-// make a backup
-fs.copySync(tiapp_xml, tiapp_xml_backup);
 
 // load up our tiapp.xml
 tiapp = tiapp.load(tiapp_xml);
@@ -145,19 +156,10 @@ if (!fs.existsSync(specs)) {
 // files we're going to shuffle
 var dest_timocha = path.join(resource_dir,'ti-mocha.js'),
 	dest_should = path.join(resource_dir,'should.js'),
-	dest_appjs = path.join(resource_dir,'app.js'),
-	copy_timocha = !fs.existsSync(dest_timocha),
-	copy_should = !fs.existsSync(dest_should),
-	backup_appjs = fs.existsSync(dest_appjs),
-	dest_appjs_backup = path.join(build_dir,'app.js');
-
-if (!fs.existsSync(dest_appjs)) {
-	die("Couldn't find app.js at",dest_appjs);
-}
+	dest_appjs = path.join(resource_dir,'app.js');
 
 fs.copySync(timocha, dest_timocha);
 fs.copySync(should, dest_should);
-fs.copySync(dest_appjs, dest_appjs_backup);
 
 var module_dest;
 
@@ -165,33 +167,20 @@ var module_dest;
 if (platform_ios) {
 	tiapp.setModule('com.appcelerator.timer', '1.0', 'iphone');
 	var ios_module = path.join('modules','ios','com.appcelerator.timer-iphone-1.0.zip'),
-		ios_module_dest = module_dest = path.join(project_dir, path.basename(ios_module));
+		ios_module_dest = module_dest = path.join(build_dir, path.basename(ios_module));
 
 	fs.copySync(ios_module,ios_module_dest);
 }
 else if (platform_android) {
 	tiapp.setModule('com.appcelerator.timer', '1.0', 'android');
 	var android_module = path.join('modules','android','com.appcelerator.timer-android-1.0.zip'),
-		android_module_dest = module_dest = path.join(project_dir, path.basename(android_module));
+		android_module_dest = module_dest = path.join(build_dir, path.basename(android_module));
 
 	fs.copySync(android_module,android_module_dest);
 }
 
 // save our tiapp.xml
 tiapp.write();
-
-// remove if we copied so we don't mess with git
-process.on('exit',function(){
-	try { copy_timocha && fs.unlinkSync(dest_timocha); } catch (E){}
-	try { copy_should && fs.unlinkSync(dest_should); } catch (E){}
-	// restore original app.js
-	try { backup_appjs && fs.copySync(dest_appjs_backup,dest_appjs); } catch (E){}
-	// restore tiapp.xml
-	try { fs.copySync(tiapp_xml_backup,tiapp_xml); } catch (E){}
-	// remove temp files
-	try { fs.unlinkSync(tiapp_xml_backup); } catch (E){}
-	try { fs.unlinkSync(dest_appjs_backup); } catch (E){}
-});
 
 var resultsRegex = /\!TEST_RESULTS_START\!/,
 	resultsEndRegex = /\!TEST_RESULTS_STOP\!/,
@@ -208,7 +197,7 @@ function runTest (callback) {
 		'--platform',
 		platform,
 		'--project-dir',
-		project_dir,
+		build_dir,
 		'--sdk',
 		version,
 		'--no-colors',
@@ -289,8 +278,7 @@ function runTest (callback) {
 
 	tasks.push(function(next){
 		if (platform_ios) {
-			var build_dir,
-				name;
+			var name;
 
 			switch (program.target) {
 				case 'device':{
@@ -306,11 +294,11 @@ function runTest (callback) {
 				}
 			}
 			
-			var build_dir = path.join(project_dir,'build','iphone','build','Debug-'+name);
-			build_dir = path.join(build_dir,fs.readdirSync(build_dir).filter(function(n) { return path.extname(n)=='.app'; } )[0]);
+			var xcodebuild_dir = path.join(build_dir,'build','iphone','build','Debug-'+name);
+			xcodebuild_dir = path.join(xcodebuild_dir,fs.readdirSync(xcodebuild_dir).filter(function(n) { return path.extname(n)=='.app'; } )[0]);
 
 			var config = {
-				build_dir: build_dir,
+				build_dir: xcodebuild_dir,
 				unit: true,
 				hide: true,
 				logger: logger,
@@ -323,7 +311,7 @@ function runTest (callback) {
 		}
 		else if (platform_android) {
 			var name = tiapp.name.charAt(0).toUpperCase()+tiapp.name.substring(1),
-				apk = path.join(project_dir,'build','android','bin',name+'.apk');
+				apk = path.join(build_dir,'build','android','bin',name+'.apk');
 
 			var config = {
 				apk: apk,
@@ -356,7 +344,7 @@ var specfiles = fs.readdirSync(specs),
 // perform the unzip of the module
 tasks.push(function(next){
 	if (module_dest && fs.existsSync(module_dest)) {
-		process.chdir(project_dir);
+		process.chdir(build_dir);
 		//TODO: fix for windows
 		return exec('/usr/bin/unzip -o "'+module_dest+'"', function(){
 			process.chdir(cwd);

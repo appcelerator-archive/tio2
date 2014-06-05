@@ -1,6 +1,6 @@
 {
   "name": "tio2",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Developer testing for Titanium",
   "main": "index.js",
   "bin": "./bin/tio2",
@@ -38,6 +38,7 @@
     "node-forge": "~0.5.5",
     "minimatch": "~0.3.0",
     "ioslib": "~0.1.5",
-    "androidlib": "~0.1.5"
+    "androidlib": "~0.1.5",
+    "wrench": "~1.5.8"
   }
 }
