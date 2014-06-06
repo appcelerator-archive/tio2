@@ -449,7 +449,7 @@ specfiles.forEach(function(fn){
 					'\n\tobj.platform.macaddress = Ti.Platform.macaddress;'+
 					'\n\tobj.platform.architecture = Ti.Platform.architecture;'+
 					'\n\tobj.platform.availableMemory = Ti.Platform.availableMemory;'+
-					'\n\tobj.platform.manufacturer  = Ti.Platform.manufacturer ;'+
+					'\n\tobj.platform.manufacturer  = Ti.Platform.manufacturer;'+
 					'\n\tobj.platform.model  = Ti.Platform.model ;'+
 					'\n\tobj.displayCaps.density = Ti.Platform.displayCaps.density;'+
 					'\n\tobj.displayCaps.dpi = Ti.Platform.displayCaps.dpi;'+
