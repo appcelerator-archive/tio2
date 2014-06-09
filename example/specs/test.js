@@ -46,4 +46,10 @@ describe("test", function(){
         win.addEventListener('postlayout',postlayout);
         win.open();
     });
+    it("should be able to read foo.txt", function(done){
+        var f = Titanium.Filesystem.getFile(Titanium.Filesystem.resourcesDirectory, 'foo.txt');
+        var contents = String(f.read());
+        should(contents).be.equal("bar\n");
+        done();
+    });
 });

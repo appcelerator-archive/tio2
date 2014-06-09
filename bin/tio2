@@ -30,6 +30,7 @@ program
   .option('-g, --grep [expr]', 'run regular expression on each test to filter specific tests to execute')
   .option('-t, --target [target]', 'target either device or simulator (default)')
   .option('-l, --log-level [level]','set the log-level for logging. defaults to info')
+  .option('-r, --recursive','include sub directories')
   .parse(process.argv);
 
 
@@ -153,6 +154,60 @@ if (!fs.existsSync(specs)) {
 	die("Couldn't find specs folder at",specs);
 }
 
+var EXCLUDE_DIRS = ['.DS_Store','.git','.svn','CVS','RCS','SCCS'];
+
+/**
+ * returns true if file path is a directory
+ */
+function isDirectory(file) {
+	return fs.statSync(file).isDirectory();
+}
+
+/**
+ * Recursively get a listing of files for a given directory
+ */
+function filelisting(recursive, dir, filter, files, dest) {
+	files = files || [];
+	var type = typeof(filter);
+	fs.readdirSync(dir).forEach(function(f) {
+		if (f === dest) {
+			return;
+		}
+		f = path.join(path.resolve(dir), f);
+		var base = path.basename(f);
+		if (isDirectory(f)) {
+			recursive && !~EXCLUDE_DIRS.indexOf(f) && filelisting(recursive, f, filter, files, dest);
+		}
+		else {
+			if (filter) {
+				if (type === 'function') {
+					filter(f,dir) && files.push(f);
+				}
+				else if (type === 'object') {
+					filter.test(f) && files.push(f);
+				}
+			}
+			else {
+				files.push(f);
+			}
+		}
+	});
+	return files;
+}
+
+// copy non-JS files
+var nonjsfiles = filelisting(program.recursive,specs,function(f){return !/\.js$/.test(f)});
+nonjsfiles.forEach(function(f){
+	var relative = path.relative(specs,f),
+		dest = path.join(resource_dir, relative),
+		destdir = path.dirname(dest);
+	if (fs.existsSync(destdir)) {
+		wrench.mkdirSyncRecursive(destdir);
+	}
+	fs.copySync(f, dest);
+});
+
+
 // files we're going to shuffle
 var dest_timocha = path.join(resource_dir,'ti-mocha.js'),
 	dest_should = path.join(resource_dir,'should.js'),
@@ -215,8 +270,11 @@ function runTest (callback) {
 	function finish() {
 		if (!_finished) {
 			_finished=true;
-			targetlib && targetlib[program.target].stop();
-			callback.apply(callback,arguments);
+			var args=arguments;
+			process.nextTick(function(){
+				targetlib && targetlib[program.target].stop();
+				callback.apply(callback,args);
+			});
 		}
 	}
 
@@ -230,9 +288,7 @@ function runTest (callback) {
 		else if (resultsEndRegex.test(message)) {
 			inResults = false;
 			testResult = JSON.parse(results.join('').trim());
-			targetlib[program.target].stop(function(){
-				finish(null,testResult);
-			});
+			finish(null,testResult);
 		}
 		else if (inResults) {
 			results.push(message);
@@ -259,17 +315,19 @@ function runTest (callback) {
 		});
 	}
 
+	var tilogger;
+
 	tasks.push(function(next){
 		var child = spawn('ti',args);
 		child.on('error', next);
-		child.on('exit',function(exitCode){
+		child.on('close',function(exitCode){
 			if (exitCode!==0) {
 				return next("ti build exited with exitCode "+exitCode);
 			}
 			next();
 		});
 		// attach platform specific logger
-		var tilogger = new ioslib.log(tiapp.name,function(label,message){
+		tilogger = new ioslib.log(tiapp.name,function(label,message){
 			// ti will emit some weird symbols as beginning. strip those out
 			log[label](message.replace(/^[\s\b:]*/,''));
 		});
@@ -335,7 +393,7 @@ function runTest (callback) {
 	async.series(tasks, finish);
 }
 
-var specfiles = fs.readdirSync(specs),
+var specfiles = filelisting(program.recursive,specs,function(f){return /\.js$/.test(f)}),
 	tasks = [],
 	appjs = path.join(resource_dir,'app.js'),
 	iterations = program.count || 1,
@@ -354,131 +412,133 @@ tasks.push(function(next){
 	next();
 });
 
+var code =  'require("ti-mocha");'+
+			'\nvar should=require("should");'+
+			'\nvar $timer=require("com.appcelerator.timer");\n';
+
 // load and run each spec file
 specfiles.forEach(function(fn){
-	if (/\.js$/.test(fn)) {
+	var jscode = fs.readFileSync(fn,'utf8').toString(),
+		ast = UglifyJS.parse(jscode);
 
-		var code = fs.readFileSync(path.join(specs,fn),'utf8').toString(),
-			ast = UglifyJS.parse(code);
-
-		// transform each spec file and re-write each test spec to run N times
-		// based on the --count value
-		function visitor(node, descend) {
-			if (node instanceof UglifyJS.AST_Toplevel) {
-				return;
-			}
-			// convert each of our `it` to wrap with an iteration for loop
-			if (node instanceof UglifyJS.AST_SimpleStatement) {
-				if (node.body.start.type === 'name' &&
-					node.body.start.value === 'it') {
-					var testname = node.body.args[0].value;
-					if (program.grep && !program.grep.test(testname)) {
-						// ignore this branch if not matched
-						return new UglifyJS.AST_EmptyStatement();
-					}
-					var init_ = new UglifyJS.AST_Var({
-						definitions: [
-							new UglifyJS.AST_VarDef({
-								name: new UglifyJS.AST_SymbolVar({name:"$r"}),
-								value: new UglifyJS.AST_Number({value:0})
-							})
-						]
-					});
-					var cond_ = new UglifyJS.AST_Binary({
-						left: new UglifyJS.AST_SymbolRef({name:"$r"}),
-						operator:'<',
-						right:new UglifyJS.AST_Number({value:iterations})
-					});
-					var step_ = new UglifyJS.AST_UnaryPostfix({
-						operator:'++',
-						expression:new UglifyJS.AST_SymbolRef({name:"$r"})
-
-					});
-					// create a new node
-					var for_ = new UglifyJS.AST_For({
-						init: init_,
-						condition: cond_,
-						step: step_,
-						body: node.body
-					});
-					return for_;
+	// transform each spec file and re-write each test spec to run N times
+	// based on the --count value
+	function visitor(node, descend) {
+		if (node instanceof UglifyJS.AST_Toplevel) {
+			return;
+		}
+		// convert each of our `it` to wrap with an iteration for loop
+		if (node instanceof UglifyJS.AST_SimpleStatement) {
+			if (node.body.start.type === 'name' &&
+				node.body.start.value === 'it' && iterations>1) {
+				var testname = node.body.args[0].value;
+				if (program.grep && !program.grep.test(testname)) {
+					// ignore this branch if not matched
+					return new UglifyJS.AST_EmptyStatement();
 				}
+				var init_ = new UglifyJS.AST_Var({
+					definitions: [
+						new UglifyJS.AST_VarDef({
+							name: new UglifyJS.AST_SymbolVar({name:"$r"}),
+							value: new UglifyJS.AST_Number({value:0})
+						})
+					]
+				});
+				var cond_ = new UglifyJS.AST_Binary({
+					left: new UglifyJS.AST_SymbolRef({name:"$r"}),
+					operator:'<',
+					right:new UglifyJS.AST_Number({value:iterations})
+				});
+				var step_ = new UglifyJS.AST_UnaryPostfix({
+					operator:'++',
+					expression:new UglifyJS.AST_SymbolRef({name:"$r"})
+
+				});
+				// create a new node
+				var for_ = new UglifyJS.AST_For({
+					init: init_,
+					condition: cond_,
+					step: step_,
+					body: node.body
+				});
+				return for_;
 			}
 		}
-
-		var tt = new UglifyJS.TreeTransformer(visitor),
-			// transform spec file
-			new_ast = ast.transform(tt),	
-			// get new JS after transform
-			jscode = new_ast.print_to_string({beautify:true}),
-			// re-write our JS by adding our wrapping code
-			code =  'require("ti-mocha");'+
-					'\nvar should=require("should");'+
-					'\nvar $timer=require("com.appcelerator.timer");'+
-					'\n'+ jscode + 
-					'\nvar $results = [];'+
-					// add a special mocha reporter that will time each test run using 
-					// our microsecond timer
-					'\nfunction $Reporter(runner){' +
-					'\n\tvar started, title;'+
-					'\n\trunner.on("suite",function(suite){'+
-					'\n\t\ttitle = suite.title;'+
-					'\n\t});'+
-					'\n\trunner.on("test",function(test){'+
-					'\n\t\tstarted = $timer.time();'+
-					'\n\t});'+
-					'\n\trunner.on("test end",function(test){'+
-					'\n\t\tvar tdiff = $timer.time()-started;'+
-					'\n\t\t$results.push({state:test.state,duration:tdiff,suite:title,title:test.title});'+
-					'\n\t});'+
-					'\n};'+
-					'\nmocha.setup({'+
-					'\n\treporter: $Reporter,'+
-					'\n\tquiet: true'+
-					'\n});'+
-					// dump the output, which will get interpreted above in the logging code
-					'\nvar $runner = mocha.run(function(){'+
-					'\n\tvar obj = {results:$results,platform:{},displayCaps:{},build:{}};'+
-					'\n\tobj.date = new Date;'+
-					'\n\tobj.platform.ostype = Ti.Platform.ostype;'+
-					'\n\tobj.platform.name = Ti.Platform.name;'+
-					'\n\tobj.platform.osname = Ti.Platform.osname;'+
-					'\n\tobj.platform.ostype = Ti.Platform.ostype;'+
-					'\n\tobj.platform.version = Ti.Platform.version;'+
-					'\n\tobj.platform.address = Ti.Platform.address;'+
-					'\n\tobj.platform.macaddress = Ti.Platform.macaddress;'+
-					'\n\tobj.platform.architecture = Ti.Platform.architecture;'+
-					'\n\tobj.platform.availableMemory = Ti.Platform.availableMemory;'+
-					'\n\tobj.platform.manufacturer  = Ti.Platform.manufacturer;'+
-					'\n\tobj.platform.model  = Ti.Platform.model ;'+
-					'\n\tobj.displayCaps.density = Ti.Platform.displayCaps.density;'+
-					'\n\tobj.displayCaps.dpi = Ti.Platform.displayCaps.dpi;'+
-					'\n\tobj.displayCaps.platformHeight = Ti.Platform.displayCaps.platformHeight;'+
-					'\n\tobj.displayCaps.platformWidth = Ti.Platform.displayCaps.platformWidth;'+
-					'\n\tobj.displayCaps.xdpi = Ti.Platform.displayCaps.xdpi;'+
-					'\n\tobj.displayCaps.ydpi = Ti.Platform.displayCaps.ydpi;'+
-					'\n\tobj.build.date = Ti.buildDate;'+
-					'\n\tobj.build.git = Ti.buildHash;'+
-					'\n\tobj.build.version = Ti.version;'+
-					'\n\tTi.API.info("!TEST_RESULTS_START!");'+
-					'\n\tvar str = JSON.stringify(obj,null,3);'+
-					'\n\tTi.API.info(str);'+
-					'\n\tTi.API.info("!TEST_RESULTS_STOP!");'+
-					'\n});';
-
-		fs.writeFileSync(dest_appjs, code, 'utf8');
-		tasks.push(runTest);
 	}
+
+	var tt = new UglifyJS.TreeTransformer(visitor),
+		// transform spec file
+		new_ast = ast.transform(tt);
+
+	// re-write our JS by adding our wrapping code
+	code += new_ast.print_to_string({beautify:true}) + '\n';
 });
 
+// append the end
+code+=
+	'\nvar $results = [];'+
+	// add a special mocha reporter that will time each test run using 
+	// our microsecond timer
+	'\nfunction $Reporter(runner){' +
+	'\n\tvar started, title;'+
+	'\n\trunner.on("suite",function(suite){'+
+	'\n\t\ttitle = suite.title;'+
+	'\n\t});'+
+	'\n\trunner.on("test",function(test){'+
+	'\n\t\tstarted = $timer.time();'+
+	'\n\t});'+
+ 	'\n\trunner.on("fail", function(test, err){'+
+ 	'\n\t\ttest.err = err;'+
+	'\n\t});'+
+	'\n\trunner.on("test end",function(test){'+
+	'\n\t\tvar tdiff = $timer.time()-started;'+
+	'\n\t\t$results.push({state:test.state,duration:tdiff,suite:title,title:test.title,error:test.err});'+
+	'\n\t});'+
+	'\n};'+
+	'\nmocha.setup({'+
+	'\n\treporter: $Reporter,'+
+	'\n\tquiet: true'+
+	'\n});'+
+	// dump the output, which will get interpreted above in the logging code
+	'\nvar $runner = mocha.run(function(){'+
+	'\n\tvar obj = {results:$results,platform:{},displayCaps:{},build:{}};'+
+	'\n\tobj.date = new Date;'+
+	'\n\tobj.platform.ostype = Ti.Platform.ostype;'+
+	'\n\tobj.platform.name = Ti.Platform.name;'+
+	'\n\tobj.platform.osname = Ti.Platform.osname;'+
+	'\n\tobj.platform.ostype = Ti.Platform.ostype;'+
+	'\n\tobj.platform.version = Ti.Platform.version;'+
+	'\n\tobj.platform.address = Ti.Platform.address;'+
+	'\n\tobj.platform.macaddress = Ti.Platform.macaddress;'+
+	'\n\tobj.platform.architecture = Ti.Platform.architecture;'+
+	'\n\tobj.platform.availableMemory = Ti.Platform.availableMemory;'+
+	'\n\tobj.platform.manufacturer  = Ti.Platform.manufacturer;'+
+	'\n\tobj.platform.model  = Ti.Platform.model ;'+
+	'\n\tobj.displayCaps.density = Ti.Platform.displayCaps.density;'+
+	'\n\tobj.displayCaps.dpi = Ti.Platform.displayCaps.dpi;'+
+	'\n\tobj.displayCaps.platformHeight = Ti.Platform.displayCaps.platformHeight;'+
+	'\n\tobj.displayCaps.platformWidth = Ti.Platform.displayCaps.platformWidth;'+
+	'\n\tobj.displayCaps.xdpi = Ti.Platform.displayCaps.xdpi;'+
+	'\n\tobj.displayCaps.ydpi = Ti.Platform.displayCaps.ydpi;'+
+	'\n\tobj.build.date = Ti.buildDate;'+
+	'\n\tobj.build.git = Ti.buildHash;'+
+	'\n\tobj.build.version = Ti.version;'+
+	'\n\tTi.API.info("!TEST_RESULTS_START!");'+
+	'\n\tvar str = JSON.stringify(obj,null,3);'+
+	'\n\tTi.API.info(str);'+
+	'\n\tTi.API.info("!TEST_RESULTS_STOP!");'+
+	'\n});';
+
+fs.writeFileSync(dest_appjs, code, 'utf8');
+tasks.push(runTest);
 
 function shutdown(err, results) {
 	if (err) { die(err); }
 	if (program.quiet) {
-		console.log(results);
+		console.log(JSON.stringify(results,0,3));
 	}
 	else {
-		log.info(results);
+		log.info(JSON.stringify(results,0,3));
 	}
 	exit();
 }
