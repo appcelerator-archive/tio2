@@ -90,51 +90,6 @@ if (!fs.existsSync(tiapp_xml)) {
 	die("Couldn't find Titanium configuration file at",tiapp_xml);
 }
 
-// load up our tiapp.xml
-tiapp = tiapp.load(tiapp_xml);
-
-var version = tiapp.sdkVersion,
-	platform = program.platform,
-	targets = tiapp.getDeploymentTargets(),
-	target_names = Object.keys(targets),
-	found;
-
-// check our deployment targets for this project with the platform under test
-for (var c=0;c<target_names.length;c++) {
-	var target = target_names[c],
-		enabled = targets[target];
-	
-	if (platform===target && !enabled) {
-		die("tiapp.xml is not configured to support the platform '"+platform+"'");
-	}
-	if (!platform && /(ipad|iphone|ios)/.test(target) && /darwin/.test(process.platform)) {
-		platform = found = 'iphone';
-		break;
-	}
-	if (platform===target || (/(iphone|ipad|ios)/.test(platform) && /(iphone|ipad|ios)/.test(target))) {
-		found = true;
-		break;
-	}
-}
-
-if (!platform || !found) {
-	die("Could not determine the platform. Specify with --platform");
-}
-
-// defaults by platform
-var defaultTargets = {
-	android: 'emulator',
-	iphone: 'simulator',
-	ios: 'simulator',
-	ipad: 'simulator'
-};
-
-// resolve the correct default target based on platform
-program.target = program.target || defaultTargets[platform];
-
-var platform_ios = /(iphone|ipad|ios)/i.test(platform),
-	platform_android = /(android)/i.test(platform);
-
 // we are going to inject these modules into generated source
 var timocha = path.join(__dirname,'..','node_modules','ti-mocha','ti-mocha.js'),
 	should = path.join(__dirname,'..','node_modules','should','should.js');
@@ -208,15 +163,68 @@ nonjsfiles.forEach(function(f){
 });
 
 
-// files we're going to shuffle
-var dest_timocha = path.join(resource_dir,'ti-mocha.js'),
+// re-check to see if tiapp.xml was in the specs folder
+var dest_tiapp = path.join(resource_dir, 'tiapp.xml');
+if (fs.existsSync(dest_tiapp)) {
+	// copy over our tiapp
+	fs.copySync(dest_tiapp, tiapp_xml);
+	// remove from resources
+	fs.unlinkSync(dest_tiapp);
+}
+
+// load up our tiapp.xml
+tiapp = tiapp.load(tiapp_xml);
+
+var version = tiapp.sdkVersion,
+	platform = program.platform,
+	targets = tiapp.getDeploymentTargets(),
+	target_names = Object.keys(targets),
+	found;
+
+// check our deployment targets for this project with the platform under test
+for (var c=0;c<target_names.length;c++) {
+	var target = target_names[c],
+		enabled = targets[target];
+	
+	if (platform===target && !enabled) {
+		die("tiapp.xml is not configured to support the platform '"+platform+"'");
+	}
+	if (!platform && /(ipad|iphone|ios)/.test(target) && /darwin/.test(process.platform)) {
+		platform = found = 'iphone';
+		break;
+	}
+	if (platform===target || (/(iphone|ipad|ios)/.test(platform) && /(iphone|ipad|ios)/.test(target))) {
+		found = true;
+		break;
+	}
+}
+
+if (!platform || !found) {
+	die("Could not determine the platform. Specify with --platform");
+}
+
+// defaults by platform
+var defaultTargets = {
+	android: 'emulator',
+	iphone: 'simulator',
+	ios: 'simulator',
+	ipad: 'simulator'
+};
+
+// resolve the correct default target based on platform
+program.target = program.target || defaultTargets[platform];
+
+var platform_ios = /(iphone|ipad|ios)/i.test(platform),
+	platform_android = /(android)/i.test(platform),
+	// files we're going to shuffle
+	dest_timocha = path.join(resource_dir,'ti-mocha.js'),
 	dest_should = path.join(resource_dir,'should.js'),
-	dest_appjs = path.join(resource_dir,'app.js');
+	dest_appjs = path.join(resource_dir,'app.js'),
+	module_dest;
 
 fs.copySync(timocha, dest_timocha);
 fs.copySync(should, dest_should);
 
-var module_dest;
 
 // make sure we write out our module info
 if (platform_ios) {
@@ -399,7 +407,7 @@ var specfiles = filelisting(program.recursive,specs,function(f){return /\.js$/.t
 	iterations = program.count || 1,
 	cwd = process.cwd();
 
-// perform the unzip of the module
+// perform the unzip of the module -- this is currently a regression in 3.3.0 https://jira.appcelerator.org/browse/TIMOB-17144
 tasks.push(function(next){
 	if (module_dest && fs.existsSync(module_dest)) {
 		process.chdir(build_dir);
