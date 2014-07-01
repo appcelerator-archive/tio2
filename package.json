@@ -2,6 +2,10 @@
   "name": "tio2",
   "version": "0.1.8",
   "description": "Developer testing for Titanium",
+  "ingot": {
+    "type": "plugin",
+    "api": "1.0"
+  },
   "main": "index.js",
   "bin": "./bin/tio2",
   "scripts": {
