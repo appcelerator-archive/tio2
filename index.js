@@ -5,8 +5,7 @@ exports.init = function init(spoke, next) {
 	spoke.registerJobHandler('tio2', function (job, callback) {
 		var child = spawn(process.execPath, [
 				path.join(__dirname, 'bin', 'tio2'),
-				//path.join(__dirname, 'example'),
-				'/Users/chris/appc/workspace/testapp',
+				path.join(__dirname, 'example'),
 				'-p', 'ios',
 				'-q'
 			]),
