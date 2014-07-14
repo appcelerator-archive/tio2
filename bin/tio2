@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * tio2 will run tests written as normal mocha specs in a Titanium app. 
+ * tio2 will run tests written as normal mocha specs in a Titanium app.
  * these tests then are run on device or simulator and collected and sent back to the CLI.
  *
  * See LICENSE for information and copyright.
@@ -67,7 +67,7 @@ if (!fs.existsSync(source_tiapp)) {
 source_tiapp = tiapp.load(source_tiapp);
 
 // create a temp build directory and let OS natively clean up as needed
-var build_dir = path.join(require('os').tmpdir(),'tio2_'+source_tiapp.name);
+var build_dir = path.join(require('os').tmpdir(), 'tio2_'+source_tiapp.name);
 
 if (!fs.existsSync(build_dir)) {
 	fs.mkdir(build_dir);
@@ -95,18 +95,18 @@ var timocha = path.join(__dirname,'..','node_modules','ti-mocha','ti-mocha.js'),
 	should = path.join(__dirname,'..','node_modules','should','should.js');
 
 if (!fs.existsSync(timocha)) {
-	die("Couldn't find ti-mocha at",timocha);
+	die("Couldn't find ti-mocha at", timocha);
 }
 
 if (!fs.existsSync(should)) {
-	die("Couldn't find should at",should);
+	die("Couldn't find should at", should);
 }
 
 // loook for our specs folder in our project
-var specs = path.join(project_dir,'specs');
+var specs = path.join(project_dir, 'specs');
 
 if (!fs.existsSync(specs)) {
-	die("Couldn't find specs folder at",specs);
+	die("Couldn't find specs folder at", specs);
 }
 
 var EXCLUDE_DIRS = ['.DS_Store','.git','.svn','CVS','RCS','SCCS'];
@@ -151,7 +151,7 @@ function filelisting(recursive, dir, filter, files, dest) {
 }
 
 // copy non-JS files
-var nonjsfiles = filelisting(program.recursive,specs,function(f){return !/\.js$/.test(f)});
+var nonjsfiles = filelisting(program.recursive, specs, function(f){return !/\.js$/.test(f)});
 nonjsfiles.forEach(function(f){
 	var relative = path.relative(specs,f),
 		dest = path.join(resource_dir, relative),
@@ -185,7 +185,7 @@ var version = tiapp.sdkVersion,
 for (var c=0;c<target_names.length;c++) {
 	var target = target_names[c],
 		enabled = targets[target];
-	
+
 	if (platform===target && !enabled) {
 		die("tiapp.xml is not configured to support the platform '"+platform+"'");
 	}
@@ -359,7 +359,7 @@ function runTest (callback) {
 					return next("incorrect target");
 				}
 			}
-			
+
 			var xcodebuild_dir = path.join(build_dir,'build','iphone','build','Debug-'+name);
 			xcodebuild_dir = path.join(xcodebuild_dir,fs.readdirSync(xcodebuild_dir).filter(function(n) { return path.extname(n)=='.app'; } )[0]);
 
@@ -381,7 +381,7 @@ function runTest (callback) {
 
 			var config = {
 				apk: apk,
-				name: name, 
+				name: name,
 				appid: tiapp.id,
 				target: program.target,
 				unit: true,
@@ -485,7 +485,7 @@ specfiles.forEach(function(fn){
 // append the end
 code+=
 	'\nvar $results = [];'+
-	// add a special mocha reporter that will time each test run using 
+	// add a special mocha reporter that will time each test run using
 	// our microsecond timer
 	'\nfunction $Reporter(runner){' +
 	'\n\tvar started, title;'+

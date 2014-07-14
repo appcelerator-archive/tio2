@@ -2,3 +2,5 @@ _tmp
 node_modules
 build
 out
+.DS_Store
+._*
