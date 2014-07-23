@@ -1,5 +1,4 @@
-var path = require('path'),
-	spawn = require('child_process').spawn;
+var path = require('path');
 
 exports.init = function init(spoke, next) {
 	spoke.registerJobHandler('titanium.sdk.test', function (job, callback) {
