@@ -4,7 +4,7 @@ var should = require('should'),
 	$timer = require('com.appcelerator.timer'),
 	$results = [];
 
-<%- suites.join('\n') %>
+<%- tests %>
 
 // add a special mocha reporter that will time each test run using
 // our microsecond timer
@@ -27,7 +27,7 @@ function $Reporter(runner) {
 	runner.on('test end',function (test) {
 		var tdiff = $timer.time() - started;
 		$results.push({
-			state: test.state,
+			state: test.state || 'skipped',
 			duration: tdiff,
 			suite: title,
 			title: test.title,
