@@ -2,19 +2,6 @@
 	"name": "tio2",
 	"version": "0.2.1",
 	"description": "Developer testing for Titanium",
-	"ingot": {
-		"type": "plugin",
-		"api": "1.0"
-	},
-	"main": "index.js",
-	"bin": "./bin/tio2",
-	"scripts": {
-		"test": "npm test"
-	},
-	"repository": {
-		"type": "git",
-		"url": "git@github.com:appcelerator/tio2.git"
-	},
 	"keywords": [
 		"titanium",
 		"automation",
@@ -23,8 +10,25 @@
 		"ios",
 		"hyperloop"
 	],
-	"author": "Jeff Haynie",
-	"license": "Apache-2",
+	"author": {
+		"name": "Appcelerator, Inc.",
+		"email": "npmjs@appcelerator.com"
+	},
+	"maintainers": [
+		{"name": "Jeff Haynie", "email": "jhaynie@appcelerator.com"},
+		{"name": "Chris Barber", "email": "cbarber@appcelerator.com"}
+	],
+	"repository": {
+		"type": "git",
+		"url": "git://github.com/appcelerator/tio2.git"
+	},
+	"ingot": {
+		"type": "plugin",
+		"api": "1.0"
+	},
+	"license": "Apache Public License v2",
+	"main": "index.js",
+	"bin": "./bin/tio2",
 	"bugs": {
 		"url": "https://github.com/appcelerator/tio2/issues"
 	},
@@ -35,7 +39,7 @@
 		"colors": "~0.6.2",
 		"commander": "~2.3.0",
 		"ejs": "~1.0.0",
-		"ioslib": "~0.1.15",
+		"ioslib": "~0.2.0",
 		"longjohn": "~0.2.4",
 		"node-appc": "~0.2.15",
 		"should": "~4.0.4",
@@ -47,5 +51,8 @@
 		"uglify-js": "~2.4.15",
 		"winston": "~0.7.3",
 		"wrench": "~1.5.8"
+	},
+	"scripts": {
+		"test": "npm test"
 	}
 }
