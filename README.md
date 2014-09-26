@@ -21,7 +21,7 @@ It's meant to be non-invasive (i.e. doesn't write over your app.js, tiapp.xml, e
 
 ## Install
 
-#### from npm 
+#### from npm
 
 ```
 [sudo] npm install -g tio2
@@ -53,7 +53,7 @@ describe("Ti.UI",function(){
     it("create empty view", function(){
         var view = new Ti.UI.createView();
         should(view).not.be.null;
-    }); 
+    });
 });
 ```
 
@@ -154,10 +154,9 @@ performance measurements.
 
 ## Limitations / TODO
 
-- For Android, the emulator must already be running -- it does not currently auto-start it. 
+- For Android, the emulator must already be running -- it does not currently auto-start it.
 - Currently, only JSON is output.  Will expand to provide integration with mocha reporters.
 - Windows 8 (as part of Hyperloop + Ti.Next)
-
 
 ## Credits
 
@@ -168,10 +167,9 @@ Some great Titanium based utilities are leveraged to make this all work:
 
 Among other great open source libraries like [mocha](https://github.com/visionmedia/mocha), [should](https://github.com/visionmedia/should.js/), etc.
 
-
 ## Reporting Bugs or submitting fixes
 
-If you run into problems, and trust us, there are likely plenty of them at this point -- please create an [Issue](https://github.com/appcelerator/tio2/issues) or, even better, send us a pull request. 
+If you run into problems, and trust us, there are likely plenty of them at this point -- please create an [Issue](https://github.com/appcelerator/tio2/issues) or, even better, send us a pull request.
 
 ## Contributing
 
@@ -185,11 +183,9 @@ To protect the interests of the tio2 contributors, Appcelerator, customers and e
 
 The original source and design for this project was developed by [Jeff Haynie](http://github.com/jhaynie) ([@jhaynie](http://twitter.com/jhaynie)).
 
-
 ## The name?
 
 TiO2 (Titanium + Oxygen) is the most important oxide, which exists in three important polymorphs; anatase, brookite, and rutile. Oxygen is vital to life on earth -- and so is testing to building great software.
-
 
 ## Legal
 
