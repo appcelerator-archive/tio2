@@ -1,0 +1,16 @@
+language: objective-c
+
+before_install:
+
+install:
+ 
+ - sudo npm install -g titanium
+ - titanium login travisci@appcelerator.com travisci
+ - titanium sdk install latest --no-progress-bars
+ - npm install
+
+script:
+
+ - ./bin/tio2 ./example --platform ios
+
+after_success:
