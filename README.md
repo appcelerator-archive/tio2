@@ -1,4 +1,4 @@
-# Tio2 [![Appcelerator Titanium](http://www-static.appcelerator.com/badges/titanium-git-badge-sq.png)](http://www.appcelerator.com/titanium/)
+# Tio2 [![Build Status](https://travis-ci.org/appcelerator/tio2.svg)](https://travis-ci.org/appcelerator/tio2)
 
 Titanium utility for better automated unit and functional testing of Titanium APIs and Titanium Apps.
 
