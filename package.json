@@ -52,7 +52,11 @@
 		"winston": "~0.8.0",
 		"wrench": "~1.5.8"
 	},
+	"devDependencies": {
+		"grunt-appc-js": "^0.3.0",
+		"grunt-cli": "*"
+	},
 	"scripts": {
-		"test": "npm test"
+		"test": "grunt"
 	}
 }
