@@ -33,7 +33,7 @@
 		"url": "https://github.com/appcelerator/tio2/issues"
 	},
 	"dependencies": {
-		"androidlib": "~0.1.7",
+		"androidlib": "~0.1.8",
 		"async": "~0.9.0",
 		"cli-table": "~0.3.0",
 		"colors": "~0.6.2",
