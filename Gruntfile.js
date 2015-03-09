@@ -14,7 +14,8 @@ module.exports = function (grunt) {
 	grunt.registerTask('sample', 'Run sample tio2 project', function () {
 		grunt.util.spawn({
 			cmd: './bin/tio2',
-			args: ['./example', '--platform', 'ios']
+			args: ['./example', '--platform', 'ios'],
+			opts: {stdio: 'inherit'}
 		}, grunt.task.current.async());
 	});
 
