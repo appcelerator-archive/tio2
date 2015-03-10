@@ -1,6 +1,7 @@
 require('ti-mocha');
 
 var should = require('should');
+var osname = Ti.Platform.osname;
 
 "tests go here";
 
@@ -45,8 +46,7 @@ var should = require('should');
 
 	// dump the output, which will get interpreted above in the logging code
 	mocha.run(function () {
-		Ti.API.info('!TI_MOCHA_RESULTS_START!');
-		Ti.API.info(JSON.stringify({
+		var jsonResults = JSON.stringify({
 			date: new Date,
 			results: results,
 			platform: {
@@ -75,7 +75,27 @@ var should = require('should');
 				git: Ti.buildHash,
 				version: Ti.version
 			}
-		}, null, '\t'));
+		}, null, '\t');
+		Ti.API.info('!TI_MOCHA_RESULTS_START!');
+		if(osname == 'android') {
+			// Issue 1) Android's logcat has a max limit of around 4000 characters.
+			// When the results are more than 4000 characters, the json is truncated.
+			// To prevent this, the json is being sent in batches of 1024*3
+			// characters along with a marker.
+			// Issue 2) A marker is used to filter the results as there is no guarantee
+			// that another log entry will not appear inbetween our json logs.
+			var marker = '!JSON_RESULTS!';
+			var quotient = jsonResults.substring(0,3072);
+			var remainder = jsonResults.substring(3072);
+			Ti.API.info(marker+quotient);
+			while(remainder.length != 0){
+				quotient = remainder.substring(0,3072);
+				remainder = remainder.substring(3072);
+				Ti.API.info(marker+quotient);
+			}
+		} else {
+			Ti.API.info(jsonResults);
+		}
 		Ti.API.info('!TI_MOCHA_RESULTS_STOP!');
 	});
 })();
