@@ -76,7 +76,7 @@ var osname = Ti.Platform.osname;
 				version: Ti.version
 			}
 		}, null, '\t');
-		Ti.API.info('!TI_MOCHA_RESULTS_START!');
+		Ti.API.info('!TEST_RESULTS_START!');
 		if(osname == 'android') {
 			// Issue 1) Android's logcat has a max limit of around 4000 characters.
 			// When the results are more than 4000 characters, the json is truncated.
@@ -96,6 +96,6 @@ var osname = Ti.Platform.osname;
 		} else {
 			Ti.API.info(jsonResults);
 		}
-		Ti.API.info('!TI_MOCHA_RESULTS_STOP!');
+		Ti.API.info('!TEST_RESULTS_STOP!');
 	});
 })();
