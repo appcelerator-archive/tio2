@@ -15,7 +15,7 @@ It's meant to be non-invasive (i.e. doesn't write over your app.js, tiapp.xml, e
 
 ![alt tag](https://raw.github.com/appcelerator/tio2/master/tio2.gif)
 
-## Current Status [![NPM version](https://badge.fury.io/js/tio2.svg)](http://badge.fury.io/js/tio2)
+## Current Status
 
 - support for iOS simulator and device testing
 - support for Android simulator and device testing
