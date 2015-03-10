@@ -1,4 +1,11 @@
-# Tio2 [![Build Status](https://travis-ci.org/appcelerator/tio2.svg)](https://travis-ci.org/appcelerator/tio2)
+# Tio2
+
+[![Build Status](https://travis-ci.org/appcelerator/tio2.svg?branch=master)](https://travis-ci.org/appcelerator/tio2)
+[![Dependency Status](https://david-dm.org/appcelerator/tio2.svg)](https://david-dm.org/appcelerator/tio2)
+[![devDependency Status](https://david-dm.org/appcelerator/tio2/dev-status.svg)](https://david-dm.org/appcelerator/tio2#info=devDependencies)
+[![NPM version](https://badge.fury.io/js/tio2.svg)](http://badge.fury.io/js/grunt-appc-js)
+
+[![NPM](https://nodei.co/npm-dl/tio2.png)](https://nodei.co/npm/tio2/)
 
 Titanium utility for better automated unit and functional testing of Titanium APIs and Titanium Apps.
 
