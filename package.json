@@ -8,7 +8,8 @@
 		"android",
 		"iphone",
 		"ios",
-		"hyperloop"
+		"hyperloop",
+		"appc-client"
 	],
 	"author": {
 		"name": "Appcelerator, Inc.",
