@@ -23,7 +23,7 @@ install:
  - titanium config android.sdkPath $ANDROID_HOME
 
  - export PATH=${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools
-  
+
  - echo "Installing and configuring Android SDK + Tools"
 
  - # Install required Android components.
@@ -38,9 +38,9 @@ install:
  - echo no | android create avd --force -n test -t android-19 --abi default/armeabi-v7a
 
  - cd $TRAVIS_BUILD_DIR
- 
+
  - emulator -avd test -no-skin -no-audio -no-window &
- 
+
  - cat ~/.titanium/config.json
 
  - npm install

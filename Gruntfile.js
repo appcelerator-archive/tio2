@@ -19,6 +19,14 @@ module.exports = function (grunt) {
 		}, grunt.task.current.async());
 	});
 
+	grunt.registerTask('sample_debug', 'Run sample tio2 project with debugging info', function () {
+		grunt.util.spawn({
+			cmd: './bin/tio2',
+			args: ['./example', '--platform', 'ios', '--log-level', 'debug'],
+			opts: {stdio: 'inherit'}
+		}, grunt.task.current.async());
+	});
+
 	// register tasks
 	grunt.registerTask('default', ['appcJs', 'sample']);
 };
