@@ -1,16 +1,58 @@
 language: objective-c
 
-before_install:
-
 install:
- 
+
+ - # Need to install jq to process the JSON
+ - brew install jq # process JSON 
+
  - sudo npm install -g titanium
  - titanium login travisci@appcelerator.com travisci
  - titanium sdk install latest --no-progress-bars
+
+ - cd $TRAVIS_BUILD_DIR/..
+ - export TRAVIS_USER=${PWD}
+ - cd $TRAVIS_USER
+ - echo $TRAVIS_USER
+ - mkdir -p "$TRAVIS_USER/sdks/"
+
+ - cd "$TRAVIS_USER/sdks/"
+ - wget http://dl.google.com/android/android-sdk_r24.0.2-macosx.zip
+ - unzip -qq -o android-sdk_r24.0.2-macosx.zip
+ - export ANDROID_HOME=${PWD}/android-sdk-macosx
+ - export ANDROID_SDK=$ANDROID_HOME
+ - titanium config android.sdkPath $ANDROID_HOME
+
+ - export PATH=${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools
+  
+ - echo "Installing and configuring Android SDK + Tools"
+
+ - # Install required Android components.
+ - echo yes | android -s update sdk --no-ui --all --filter platform-tools
+ - echo yes | android -s update sdk --no-ui --all --filter tools
+ - echo yes | android -s update sdk --no-ui --all --filter build-tools-22.0.0
+ - echo yes | android -s update sdk --no-ui --all --filter extra-android-support 
+ - echo yes | android -s update sdk --no-ui --all --filter android-19
+ - echo yes | android -s update sdk --no-ui --all --filter addon-google_apis-google-19
+ - echo yes | android -s update sdk --no-ui --all --filter sys-img-armeabi-v7a-android-19
+ - android list targets
+ - echo no | android create avd --force -n test -t android-19 --abi default/armeabi-v7a
+
+ - cd $TRAVIS_BUILD_DIR
+ 
+ - emulator -avd test -no-skin -no-audio -no-window &
+ 
+ - cat ~/.titanium/config.json
+
  - npm install
 
 script:
 
  - ./bin/tio2 ./example --platform ios
+
+ - curl -o android_wait_for_emulator.sh https://raw.githubusercontent.com/appcelerator-modules/ci/master/travis/android_wait_for_emulator.sh
+ - source android_wait_for_emulator.sh
+ - adb shell input keyevent 82 &
+
+ - ./bin/tio2 ./example --platform android --log-level debug
 
 after_success:
