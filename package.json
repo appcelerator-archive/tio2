@@ -1,6 +1,6 @@
 {
 	"name": "tio2",
-	"version": "0.2.3",
+	"version": "0.2.4",
 	"description": "Developer testing for Titanium",
 	"keywords": [
 		"titanium",
@@ -17,7 +17,8 @@
 	},
 	"maintainers": [
 		{"name": "Jeff Haynie", "email": "jhaynie@appcelerator.com"},
-		{"name": "Chris Barber", "email": "cbarber@appcelerator.com"}
+		{"name": "Chris Barber", "email": "cbarber@appcelerator.com"},
+		{"name": "Chee Kiat Ng", "email": "cng@appcelerator.com"}
 	],
 	"repository": {
 		"type": "git",
@@ -35,26 +36,26 @@
 	},
 	"dependencies": {
 		"androidlib": "~0.1.8",
-		"async": "~0.9.0",
+		"async": "~1.4.2",
 		"cli-table": "~0.3.0",
 		"colors": "~1.0.3",
-		"commander": "~2.7.1",
+		"commander": "~2.9.0",
 		"ejs": "~2.3.1",
-		"ioslib": "~0.2.9",
+		"ioslib": "~0.8.1",
 		"longjohn": "~0.2.4",
 		"node-appc": "~0.2.17",
-		"should": "~5.1.0",
-		"source-map": "~0.4.1",
+		"should": "~7.1.1",
+		"source-map": "~0.5.2",
 		"sprintf": "~0.1.4",
-		"temp": "~0.8.1",
+		"temp": "~0.8.3",
 		"ti-mocha": "~0.2.0",
 		"tiapp.xml": "~0.2.0",
-		"uglify-js": "~2.4.15",
-		"winston": "~0.9.0",
+		"uglify-js": "~2.5.0",
+		"winston": "~1.1.1",
 		"wrench": "~1.5.8"
 	},
 	"devDependencies": {
-		"grunt-appc-js": "^0.3.0",
+		"grunt-appc-js": "~1.0.15",
 		"grunt-cli": "*"
 	},
 	"scripts": {
