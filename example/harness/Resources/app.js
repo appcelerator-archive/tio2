@@ -33,8 +33,7 @@ var osname = Ti.Platform.osname;
 				state: test.state || 'skipped',
 				duration: tdiff,
 				suite: title,
-				title: test.title,
-				error: test.err
+				title: test.title
 			});
 		});
 	};

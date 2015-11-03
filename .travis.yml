@@ -45,10 +45,11 @@ script:
 
  - ./bin/tio2 ./example --platform ios
 
- - curl -o android_wait_for_emulator.sh https://raw.githubusercontent.com/appcelerator-modules/ci/master/travis/android_wait_for_emulator.sh
- - source android_wait_for_emulator.sh
- - adb shell input keyevent 82 &
+ - # comment out android part first
+ - # curl -o android_wait_for_emulator.sh https://raw.githubusercontent.com/appcelerator-modules/ci/master/travis/android_wait_for_emulator.sh
+ - # source android_wait_for_emulator.sh
+ - # adb shell input keyevent 82 &
 
- - ./bin/tio2 ./example --platform android --log-level debug
+ - # ./bin/tio2 ./example --platform android --log-level debug
 
 after_success:
